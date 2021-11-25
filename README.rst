@@ -1,6 +1,0 @@
-=======
-Radio81
-=======
-
-A classical command line old tube radio, you can't skip songs... you have to deal with it...
-Just relax and listen... like it used to be...
