@@ -1,5 +1,9 @@
 from vlc import Meta
 
+import os
+
+os.environ["VLC_VERBOSE"] = "-1"
+
 import aiohttp
 import asyncio
 

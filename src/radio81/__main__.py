@@ -1,6 +1,3 @@
-import os
-
-os.environ["VLC_VERBOSE"] = "-1"
 
 from radio81.console import start
 
