@@ -23,7 +23,7 @@ from radio81.genres import Station, default_shoutcast_data
 #     )
 
 
-def createShoutCastPlayer(
+def create_shoutcast_player(
         genres=default_shoutcast_data(),
         media_player=MediaPlayer(),
         genre='Rock'):
@@ -41,7 +41,7 @@ class ShoutCastPlayer:
     genre: str
 
 
-def closePlayer(shoutcast_player: ShoutCastPlayer):
+def close_player(shoutcast_player: ShoutCastPlayer):
     shoutcast_player.media_player.release()
 
 

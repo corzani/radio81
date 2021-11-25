@@ -1,19 +1,10 @@
-from vlc import Meta
-
 import os
-
-os.environ["VLC_VERBOSE"] = "-1"
 
 import aiohttp
 import asyncio
 
-from radio81.genres import default_shoutcast_data
-from radio81.parser import select_genre, select_station
-from radio81.player import load_stations, ShoutCastPlayer, play_station, closePlayer, createShoutCastPlayer
-from radio81 import __version__
 
-
-def logo():
+def logo(ver):
     print('')
     print('██████╗  █████╗ ██████╗ ██╗ ██████╗      █████╗  ██╗')
     print('██╔══██╗██╔══██╗██╔══██╗██║██╔═══██╗    ██╔══██╗███║')
@@ -21,18 +12,25 @@ def logo():
     print('██╔══██╗██╔══██║██║  ██║██║██║   ██║    ██╔══██╗ ██║')
     print('██║  ██║██║  ██║██████╔╝██║╚██████╔╝    ╚█████╔╝ ██║')
     print('╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚═╝ ╚═════╝      ╚════╝  ╚═╝')
-    print(f'ALPHA {__version__}                    quit: CTRL+C')
+    print(f'ALPHA {ver}                    quit: CTRL+C')
     print('----------------------------------------------------')
 
 
-async def console_main(player: ShoutCastPlayer):
-    logo()
+async def console_main(shoutcast_player):
+    # This is a workaround to exec
+    from radio81.genres import default_shoutcast_data
+    from radio81.parser import select_genre, select_station
+    from radio81.player import load_stations, ShoutCastPlayer, play_station, close_player, create_shoutcast_player
+    from radio81 import __version__
+    from vlc import Meta
+
+    logo(__version__)
+    player: ShoutCastPlayer = shoutcast_player
     genres = default_shoutcast_data()
-    selected_genre = await select_genre(genres)
-    player.genre = selected_genre
 
     # Should I maintain this client session open? What would it imply? I guess nothing...
     async with aiohttp.ClientSession(base_url='https://directory.shoutcast.com') as session:
+        player.genre = await select_genre(genres)
         stations = await load_stations(session, player, player.genre)
         station = await select_station(stations)
 
@@ -51,8 +49,9 @@ async def console_main(player: ShoutCastPlayer):
             while True:
                 media_title = media.get_meta(Meta.NowPlaying)
                 title = media_title if media_title is not None else 'Retrieving title...'
-                # It must be something better than this, if not the size of the window would change the behaviour
-                print(f'=> {title}', end='\r')
+                # There is something better than this to handling one line refreshing,
+                # even ncurses. But be patient it's an MVP...
+                print(f'=> {title}'.ljust(70, ' '), end='\r')
                 await asyncio.sleep(5)
 
         # Are you serious?!?!?!? MediaMetaChanged doesn't work?
@@ -61,16 +60,21 @@ async def console_main(player: ShoutCastPlayer):
         # print("Press enter for the next Rock station :). Don't you like classic rock? Go back to school...")
 
     # At the moment this is almost unreachable apart if you pass all the current genre stations :)
-    closePlayer(player)
+    close_player(player)
 
 
 def start():
+    os.environ["VLC_VERBOSE"] = "-1"
+
+    from radio81.player import close_player
+    from radio81.player import create_shoutcast_player
+
     async def start_radio():
-        player = createShoutCastPlayer()
+        player = create_shoutcast_player()
 
         try:
             await console_main(player)
         except asyncio.CancelledError:
-            closePlayer(player)
+            close_player(player)
 
     asyncio.run(start_radio())
