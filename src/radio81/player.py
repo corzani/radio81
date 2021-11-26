@@ -72,10 +72,17 @@ async def get_station_url(session, station_id):
         return await resp.json()
 
 
-async def load_stations(session, shoutcast_player: ShoutCastPlayer, genre):
-    shoutcast_player.currentGenreStations = map(lambda station: Station(name=station['Name'], id=station['ID'], url=''),
-                                                await get_genre_stations(session, genre))
-    return shoutcast_player.currentGenreStations
+async def load_stations(session, genre):
+    return map(
+        lambda station: Station(
+            name=station['Name'],
+            id=station['ID'], url=''
+        ),
+        filter(
+            lambda station: station['Name'],  # Stations that have a title
+            await get_genre_stations(session, genre)
+        )
+    )
 
 
 async def play_station(shoutcast_player: ShoutCastPlayer, session, station):
@@ -86,5 +93,5 @@ async def play_station(shoutcast_player: ShoutCastPlayer, session, station):
 
         return media, url
     except Exception as e:
-        print(e)
-        return None
+        print(f'Station {station.name} is not playable at the moment...')
+        return None, ''

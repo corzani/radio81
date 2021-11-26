@@ -22,7 +22,6 @@ async def console_main(shoutcast_player):
     from radio81.parser import select_genre, select_station
     from radio81.player import load_stations, ShoutCastPlayer, play_station, close_player, create_shoutcast_player
     from radio81 import __version__
-    from vlc import Meta
 
     logo(__version__)
     player: ShoutCastPlayer = shoutcast_player
@@ -30,37 +29,50 @@ async def console_main(shoutcast_player):
 
     # Should I maintain this client session open? What would it imply? I guess nothing...
     async with aiohttp.ClientSession(base_url='https://directory.shoutcast.com') as session:
-        player.genre = await select_genre(genres)
-        stations = await load_stations(session, player, player.genre)
-        station = await select_station(stations)
-
+        # Python is pointless in 2021... Use Kotlin instead...
+        station = ''
         try:
-            media, url = await play_station(player, session, station)
+            player.genre = await select_genre(genres)
+            stations = await load_stations(session, player.genre)
+
+            if not stations:
+                print(f'Wow... {player.genre} genre has no stations available. Nice pick!')
+                print('Let me decide for you... What about Classic Rock?')
+                stations = await load_stations(session, "Classic Rock")
+
+            station = await select_station(stations)
         except Exception as e:
             print(e)
-            media = None
+            return
+
+        media, url = await play_station(player, session, station)
 
         if media is None:
-            print(f'Error on {station} ({station.id}) - SKIPPED')
-        else:
+            print(f'Error on {station.name} ({station.id}) - SKIPPED')
+            return
 
-            # This is very bad but I can't retrieve the metachanged event from VLC
-            # So... at the moment I'll stick with this solution
-            while True:
-                media_title = media.get_meta(Meta.NowPlaying)
-                title = media_title if media_title is not None else 'Retrieving title...'
-                # There is something better than this to handling one line refreshing,
-                # even ncurses. But be patient it's an MVP...
-                print(f'=> {title}'.ljust(70, ' '), end='\r')
-                await asyncio.sleep(5)
+        await play_loop(media)
+    # This is very bad but I can't retrieve the metachanged event from VLC
+    # So... at the moment I'll stick with this solution
 
-        # Are you serious?!?!?!? MediaMetaChanged doesn't work?
-        # All examples online are with polling :(. Damn... Is it still a bug?
+    # Are you serious?!?!?!? MediaMetaChanged doesn't work?
+    # All examples online are with polling :(. Damn... Is it still a bug?
 
-        # print("Press enter for the next Rock station :). Don't you like classic rock? Go back to school...")
 
-    # At the moment this is almost unreachable apart if you pass all the current genre stations :)
-    close_player(player)
+# This is an evil function for many reasons:
+# PythonVlc library:
+# doesn't trigger exceptions
+# doesn't trigger some events like metachanged...
+async def play_loop(media):
+    from vlc import Meta
+
+    while True:
+        media_title = media.get_meta(Meta.NowPlaying)
+        title = media_title if media_title is not None else 'Retrieving title...'
+        # There is something better than this to handling one line refreshing,
+        # even ncurses. But be patient it's an MVP...
+        print(f'=> {title}'.ljust(70, ' '), end='\r')
+        await asyncio.sleep(5)
 
 
 def start():
@@ -74,7 +86,8 @@ def start():
 
         try:
             await console_main(player)
-        except asyncio.CancelledError:
+        finally:
             close_player(player)
+        # except asyncio.CancelledError:
 
     asyncio.run(start_radio())
