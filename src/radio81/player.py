@@ -1,3 +1,4 @@
+import asyncio
 import dataclasses
 from typing import Dict
 
@@ -49,12 +50,9 @@ def play_stream(shoutcast_player: ShoutCastPlayer, url):
     # This is temporary, I wouldn't execute play and stop within this function
 
     media_player = shoutcast_player.media_player
-
     media = Media(url)
-    media.parse_with_options(MediaParseFlag.network, 0)
     media_player.stop()
     media_player.set_media(media)
-    media.parse_with_options(1, 0)  # Why???!?!? Do I have to set up the parsing option for every media?
     media_player.play()
 
     return media
@@ -63,35 +61,40 @@ def play_stream(shoutcast_player: ShoutCastPlayer, url):
 async def get_genre_stations(session, genre):
     async with session.post('/Home/BrowseByGenre',
                             data={'genrename': genre}, timeout=5) as resp:
+        print("Status:", resp.status)
+        print("Content-type:", resp.headers['content-type'])
         return await resp.json()
 
 
 async def get_station_url(session, station_id):
     async with session.post('/Player/GetStreamUrl',
                             data={"station": station_id}, timeout=5) as resp:
-        return await resp.json()
+        print("Status:", resp.status)
+        print("Status:", resp.real_url)
+        print("Content-type:", resp.headers['content-type'])
+        response = await resp.json()
+        print(f"Response: {response}")
+
+        return response
 
 
 async def load_stations(session, genre):
-    return map(
+    stations = await get_genre_stations(session, genre)
+    return list(map(
         lambda station: Station(
             name=station['Name'],
-            id=station['ID'], url=''
+            id=station['ID'],
+            url=''
         ),
         filter(
-            lambda station: station['Name'],  # Stations that have a title
-            await get_genre_stations(session, genre)
+            lambda station: station['Name'], stations  # Stations that have a title
         )
-    )
+    ))
 
 
 async def play_station(shoutcast_player: ShoutCastPlayer, session, station):
-    try:
-        url = await get_station_url(session, station.id) if station.url == '' else station.url
+    url = await get_station_url(session, station.id) if station.url == '' else station.url
 
-        media = play_stream(shoutcast_player, url)
+    media = play_stream(shoutcast_player, url)
 
-        return media, url
-    except Exception as e:
-        print(f'Station {station.name} is not playable at the moment...')
-        return None, ''
+    return media, url

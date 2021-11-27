@@ -3,7 +3,6 @@ import os
 import aiohttp
 import asyncio
 
-
 def logo(ver):
     print('')
     print('██████╗  █████╗ ██████╗ ██╗ ██████╗      █████╗  ██╗')
@@ -12,12 +11,13 @@ def logo(ver):
     print('██╔══██╗██╔══██║██║  ██║██║██║   ██║    ██╔══██╗ ██║')
     print('██║  ██║██║  ██║██████╔╝██║╚██████╔╝    ╚█████╔╝ ██║')
     print('╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚═╝ ╚═════╝      ╚════╝  ╚═╝')
-    print(f'ALPHA {ver}                    quit: CTRL+C')
+    print(f'ALPHA {ver.ljust(34, " ")}quit: CTRL+C')
+    print('Powered by SHOUTcast')
     print('----------------------------------------------------')
 
 
 async def console_main(shoutcast_player):
-    # This is a workaround to exec
+    # This is a workaround to avoid VLC logging
     from radio81.genres import default_shoutcast_data
     from radio81.parser import select_genre, select_station
     from radio81.player import load_stations, ShoutCastPlayer, play_station, close_player, create_shoutcast_player
@@ -41,8 +41,8 @@ async def console_main(shoutcast_player):
                 stations = await load_stations(session, "Classic Rock")
 
             station = await select_station(stations)
-        except Exception as e:
-            print(e)
+        except asyncio.exceptions.TimeoutError as timeout:
+            print(f'Timeout occurred during request')
             return
 
         media, url = await play_station(player, session, station)
@@ -51,6 +51,8 @@ async def console_main(shoutcast_player):
             print(f'Error on {station.name} ({station.id}) - SKIPPED')
             return
 
+        print('')
+        print(f'Radio ID: {station.id} URL: "{url}"')
         await play_loop(media)
     # This is very bad but I can't retrieve the metachanged event from VLC
     # So... at the moment I'll stick with this solution
@@ -66,10 +68,11 @@ async def console_main(shoutcast_player):
 async def play_loop(media):
     from vlc import Meta
 
+    # While true and polling... I never imagined to use those workarounds to update song titles...
     while True:
         media_title = media.get_meta(Meta.NowPlaying)
         title = media_title if media_title is not None else 'Retrieving title...'
-        # There is something better than this to handling one line refreshing,
+        # There are thousands of better ways than this one for handling one line refreshing,
         # even ncurses. But be patient it's an MVP...
         print(f'=> {title}'.ljust(70, ' '), end='\r')
         await asyncio.sleep(5)
