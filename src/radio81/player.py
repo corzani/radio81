@@ -7,6 +7,10 @@ from vlc import Media, MediaParseFlag, MediaPlayer
 
 from radio81.genres import Station, default_shoutcast_data
 
+import logging
+
+log = logging.getLogger(__name__)
+
 
 # def createShoutCastPlayerByGenre(
 #         genres=default_shoutcast_data(),
@@ -58,24 +62,26 @@ def play_stream(shoutcast_player: ShoutCastPlayer, url):
     return media
 
 
+async def parse_json_and_log_response(resp, print_json: bool = False):
+    log.debug(f'Status: {resp.status}')
+    log.debug(f'URL: {resp.real_url}')
+    log.debug(f'Content-type: {resp.headers["content-type"]}')
+    parsed_response = await resp.json()
+    if print_json:
+        log.debug(f'Response: {parsed_response}')
+    return parsed_response
+
+
 async def get_genre_stations(session, genre):
     async with session.post('/Home/BrowseByGenre',
                             data={'genrename': genre}, timeout=5) as resp:
-        print("Status:", resp.status)
-        print("Content-type:", resp.headers['content-type'])
-        return await resp.json()
+        return await parse_json_and_log_response(resp)
 
 
 async def get_station_url(session, station_id):
     async with session.post('/Player/GetStreamUrl',
                             data={"station": station_id}, timeout=5) as resp:
-        print("Status:", resp.status)
-        print("Status:", resp.real_url)
-        print("Content-type:", resp.headers['content-type'])
-        response = await resp.json()
-        print(f"Response: {response}")
-
-        return response
+        return await parse_json_and_log_response(resp, True)
 
 
 async def load_stations(session, genre):
