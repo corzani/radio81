@@ -1,31 +1,14 @@
-import asyncio
 import dataclasses
 from typing import Dict
 
 import vlc
-from vlc import Media, MediaParseFlag, MediaPlayer
+from vlc import Media, MediaPlayer
 
 from radio81.genres import Station, default_shoutcast_data
 
 import logging
 
 log = logging.getLogger(__name__)
-
-
-# def createShoutCastPlayerByGenre(
-#         genres=default_shoutcast_data(),
-#         media_player=MediaPlayer(),
-#         default_genre=None,
-#         default_sub_genre=None):
-#     genre = next(iter(genres.values())) if default_genre is None else genres[default_genre]
-#     genre = genre if default_sub_genre is None else genre.sub_genres[default_sub_genre]
-#
-#     return ShoutCastPlayer(
-#         genres,
-#         media_player,
-#         genre,
-#         current_genre
-#     )
 
 
 def create_shoutcast_player(

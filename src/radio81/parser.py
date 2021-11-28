@@ -9,10 +9,10 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def parse_args() -> ArgumentParser:
-    parser = ArgumentParser(description='Radio 81 - A banal old tube radio')
-    parser.add_argument('--id', metavar='STATION_ID', help='Play a station ')
-    return parser
+def argument_parser() -> ArgumentParser:
+    arg_parser = ArgumentParser(description='Radio 81 - A banal old tube radio', prog='radio81')
+    arg_parser.add_argument('--id', metavar='STATION_ID', help='Play a station ')
+    return arg_parser
 
 
 async def select_genre(genres):
@@ -45,9 +45,3 @@ async def fuzzy_prompt(**args):
         return None
     else:
         return result
-
-
-if __name__ == '__main__':
-    parser = parse_args()
-    somethine = parser.parse_args([])
-    print(somethine)

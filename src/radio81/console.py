@@ -5,7 +5,7 @@ import aiohttp
 import asyncio
 import logging
 
-from radio81.parser import parse_args
+from radio81.parser import argument_parser
 
 log = logging.getLogger(__name__)
 
@@ -25,10 +25,9 @@ def logo(ver):
 
 async def console_main(shoutcast_player, station_id=None):
     # This is a workaround to avoid VLC logging
-    from radio81.genres import default_shoutcast_data
-    from radio81.parser import select_genre, select_station
-    from radio81.player import load_stations, ShoutCastPlayer, play_station, close_player, create_shoutcast_player
+
     from radio81 import __version__
+    from radio81.player import ShoutCastPlayer, play_station
 
     logo(__version__)
     player: ShoutCastPlayer = shoutcast_player
@@ -36,21 +35,12 @@ async def console_main(shoutcast_player, station_id=None):
     # Should I maintain this client session open? What would it imply? I guess nothing...
     async with aiohttp.ClientSession(base_url='https://directory.shoutcast.com') as session:
         # Python is pointless in 2021... Use Kotlin instead...
-        station = ''
-        try:
-            genres = default_shoutcast_data()
-            player.genre = await select_genre(genres)
-            stations = await load_stations(session, player.genre)
 
-            if not stations:
-                log.info(f'Wow... {player.genre} genre has no stations available. Nice pick!')
-                log.info('Let me decide for you... What about Classic Rock?')
-                stations = await load_stations(session, "Classic Rock")
-
-            station = await select_station(stations)
-        except asyncio.exceptions.TimeoutError as timeout:
-            log.error(f'Timeout occurred during request')
-            return
+        if station_id is None:
+            station = await prompt_genre_and_stations(player, session)
+        else:
+            from radio81.genres import Station
+            station = Station(name=station_id, id=station_id, url='')
 
         if station is None:
             log.error(f'No station selected, exiting...')
@@ -70,6 +60,21 @@ async def console_main(shoutcast_player, station_id=None):
 
     # Are you serious?!?!?!? MediaMetaChanged doesn't work?
     # All examples online are with polling :(. Damn... Is it still a bug?
+
+
+async def prompt_genre_and_stations(player, session):
+    from radio81.genres import default_shoutcast_data
+    from radio81.parser import select_genre, select_station
+    from radio81.player import load_stations
+
+    genres = default_shoutcast_data()
+    player.genre = await select_genre(genres)
+    stations = await load_stations(session, player.genre)
+    if not stations:
+        log.info(f'Wow... {player.genre} genre has no stations available. Nice pick!')
+        log.info('Let me decide for you... What about Classic Rock?')
+        stations = await load_stations(session, "Classic Rock")
+    return await select_station(stations)
 
 
 # This is an evil function for many reasons:
@@ -92,7 +97,8 @@ async def play_loop(media):
 
 def start():
     os.environ["VLC_VERBOSE"] = "-1"
-    parse_args()
+    parsed_args = argument_parser().parse_args()
+    station_id = parsed_args.id
 
     log_format = "%(message)s"
     logging.basicConfig(
@@ -107,9 +113,16 @@ def start():
         player = create_shoutcast_player()
 
         try:
-            await console_main(player)
+            await console_main(player, station_id)
         finally:
             close_player(player)
         # except asyncio.CancelledError:
 
-    asyncio.run(start_radio())
+    try:
+        asyncio.run(start_radio())
+    except KeyboardInterrupt:
+        log.info("CTRL+C Pressed, are you tired of music? You should not...")
+    except asyncio.exceptions.TimeoutError:
+        log.error(f'Timeout occurred during request')
+    except Exception as e:
+        print(e)
