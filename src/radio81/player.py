@@ -99,7 +99,12 @@ async def load_stations(session, genre):
 
 
 async def play_station(shoutcast_player: ShoutCastPlayer, session, station):
-    url = await get_station_url(session, station.id) if station.url == '' else station.url
+    url: str = await get_station_url(session, station.id) if station.url == '' else station.url
+
+    # on error, Shoutcast returns 200 with the body "<Error requesting url for station>" and application/json type
+    # cool, isn't it? This is a temporary solution...
+    if url.startswith('<'):
+        return None, None
 
     media = play_stream(shoutcast_player, url)
 

@@ -5,6 +5,8 @@ import aiohttp
 import asyncio
 import logging
 
+from radio81.parser import parse_args
+
 log = logging.getLogger(__name__)
 
 
@@ -21,7 +23,7 @@ def logo(ver):
     log.info('----------------------------------------------------')
 
 
-async def console_main(shoutcast_player):
+async def console_main(shoutcast_player, station_id=None):
     # This is a workaround to avoid VLC logging
     from radio81.genres import default_shoutcast_data
     from radio81.parser import select_genre, select_station
@@ -30,13 +32,13 @@ async def console_main(shoutcast_player):
 
     logo(__version__)
     player: ShoutCastPlayer = shoutcast_player
-    genres = default_shoutcast_data()
 
     # Should I maintain this client session open? What would it imply? I guess nothing...
     async with aiohttp.ClientSession(base_url='https://directory.shoutcast.com') as session:
         # Python is pointless in 2021... Use Kotlin instead...
         station = ''
         try:
+            genres = default_shoutcast_data()
             player.genre = await select_genre(genres)
             stations = await load_stations(session, player.genre)
 
@@ -48,6 +50,10 @@ async def console_main(shoutcast_player):
             station = await select_station(stations)
         except asyncio.exceptions.TimeoutError as timeout:
             log.error(f'Timeout occurred during request')
+            return
+
+        if station is None:
+            log.error(f'No station selected, exiting...')
             return
 
         media, url = await play_station(player, session, station)
@@ -86,6 +92,7 @@ async def play_loop(media):
 
 def start():
     os.environ["VLC_VERBOSE"] = "-1"
+    parse_args()
 
     log_format = "%(message)s"
     logging.basicConfig(

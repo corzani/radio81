@@ -2,25 +2,52 @@ from itertools import chain
 
 from InquirerPy import inquirer
 
+from argparse import Namespace, ArgumentParser
+
+import logging
+
+log = logging.getLogger(__name__)
+
+
+def parse_args() -> ArgumentParser:
+    parser = ArgumentParser(description='Radio 81 - A banal old tube radio')
+    parser.add_argument('--id', metavar='STATION_ID', help='Play a station ')
+    return parser
+
 
 async def select_genre(genres):
     list_genres = map(lambda genre: [genre] + list(genres[genre].sub_genres.keys()), list(genres.keys()))
 
     flat_list = list(chain(*list_genres))
-    selected = inquirer.fuzzy(
+    return await fuzzy_prompt(
         message="Select or Type a genre:",
         choices=flat_list
     )
 
-    result = await selected.application.run_async()
-    return result
-
 
 async def select_station(stations):
-    selected = inquirer.fuzzy(
+    return await fuzzy_prompt(
         message="Select or Type a station:",
         choices=list(map(lambda station: {'name': station.name, 'value': station}, stations))
     )
 
+
+async def fuzzy_prompt(**args):
+    selected = inquirer.fuzzy(**args)
+
     result = await selected.application.run_async()
-    return result
+
+    # I hope they won't add any radio/genre called 'INQUIRERPY_KEYBOARD_INTERRUPT'
+
+    log.debug(f'On choice "{args.get("message")}" you picked "{result}"')
+
+    if result == 'INQUIRERPY_KEYBOARD_INTERRUPT':
+        return None
+    else:
+        return result
+
+
+if __name__ == '__main__':
+    parser = parse_args()
+    somethine = parser.parse_args([])
+    print(somethine)
