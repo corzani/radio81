@@ -19,7 +19,6 @@ radio81
 ## Additional notes
 
 
-This is an Alpha version I wrote during a mystical crisis so don't blame anyone if that doesn't work in every situation.
-It will be better soon... or probably not... I find it so lovely as it is... even with the exception when you press CTRL+C.
+This is an Beta version I wrote during a mystical crisis, don't blame anyone if that doesn't work in every situation.
 
 I almost forgot... Thanks to Shoutcast and people who are making those beautiful radio stations...

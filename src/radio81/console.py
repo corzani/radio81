@@ -21,7 +21,7 @@ def logo(ver):
     log.info('██╔══██╗██╔══██║██║  ██║██║██║   ██║    ██╔══██╗ ██║')
     log.info('██║  ██║██║  ██║██████╔╝██║╚██████╔╝    ╚█████╔╝ ██║')
     log.info('╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚═╝ ╚═════╝      ╚════╝  ╚═╝')
-    log.info(f'ALPHA {ver.ljust(34, " ")}quit: CTRL+C')
+    log.info(f'BETA {ver.ljust(34, " ")}quit: CTRL+C')
     log.info('Powered by SHOUTcast')
     log.info('----------------------------------------------------')
 
