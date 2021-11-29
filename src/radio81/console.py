@@ -5,6 +5,9 @@ import aiohttp
 import asyncio
 import logging
 
+from diskcache import Cache
+from appdirs import *
+
 from radio81.parser import argument_parser
 
 log = logging.getLogger(__name__)
@@ -23,7 +26,7 @@ def logo(ver):
     log.info('----------------------------------------------------')
 
 
-async def console_main(shoutcast_player, station_id=None):
+async def console_main(cache, shoutcast_player, station_id=None):
     # This is a workaround to avoid VLC logging
 
     from radio81 import __version__
@@ -37,19 +40,19 @@ async def console_main(shoutcast_player, station_id=None):
         # Python is pointless in 2021... Use Kotlin instead...
 
         if station_id is None:
-            station = await prompt_genre_and_stations(player, session)
+            station = await prompt_genre_and_stations(cache['genres'], player, session)
         else:
             from radio81.genres import Station
-            station = Station(name=station_id, id=station_id, url='')
+            station = Station(name='A station you asked me to play', id=station_id, url='')
 
         if station is None:
             log.error(f'No station selected, exiting...')
             return
 
-        media, url = await play_station(player, session, station)
+        media, url = await play_station(cache['stations'], player, session, station)
 
         if media is None:
-            log.error(f'Error on {station.name} ({station.id}) - SKIPPED')
+            log.error(f'Error on {station.name} (ID: {station.id}) - SKIPPED')
             return
 
         log.info('')
@@ -62,19 +65,37 @@ async def console_main(shoutcast_player, station_id=None):
     # All examples online are with polling :(. Damn... Is it still a bug?
 
 
-async def prompt_genre_and_stations(player, session):
+async def prompt_genre_and_stations(cache, player, session):
     from radio81.genres import default_shoutcast_data
     from radio81.parser import select_genre, select_station
-    from radio81.player import load_stations
 
     genres = default_shoutcast_data()
     player.genre = await select_genre(genres)
-    stations = await load_stations(session, player.genre)
+
+    if player.genre is None:
+        return None
+
+    stations = await get_stations_cached(cache, player.genre, session)
+
     if not stations:
         log.info(f'Wow... {player.genre} genre has no stations available. Nice pick!')
         log.info('Let me decide for you... What about Classic Rock?')
-        stations = await load_stations(session, "Classic Rock")
+        player.genre = "Classic Rock"
+        stations = await get_stations_cached(cache, "Classic Rock", session)
+
+    cache.set(player.genre, stations, expire=3600)
     return await select_station(stations)
+
+
+async def get_stations_cached(cache, genre, session):
+    from radio81.player import load_stations
+    stations = cache.get(genre)
+    if stations is None:
+        log.debug(f'{genre} stations not found on cache. Retrieving them...')
+        stations = await load_stations(session, genre)
+    else:
+        log.debug(f'{genre} stations found on cache. Skipping HTTP request...')
+    return stations
 
 
 # This is an evil function for many reasons:
@@ -98,31 +119,38 @@ async def play_loop(media):
 def start():
     os.environ["VLC_VERBOSE"] = "-1"
     parsed_args = argument_parser().parse_args()
-    station_id = parsed_args.id
+    station_id = parsed_args.station_id
 
     log_format = "%(message)s"
     logging.basicConfig(
         stream=sys.stdout,
         format=log_format,
-        level=logging.INFO)
+        level=logging.DEBUG if parsed_args.verbose else logging.INFO)
+
+    logging.getLogger('asyncio').setLevel(logging.ERROR)
 
     from radio81.player import close_player
     from radio81.player import create_shoutcast_player
 
-    async def start_radio():
-        player = create_shoutcast_player()
+    cache_dir = user_cache_dir('radio81')
+    genres_cache_dir = os.path.join(cache_dir, "genres")
+    stations_cache_dir = os.path.join(cache_dir, "stations")
+    cache = {'genres': Cache(genres_cache_dir), 'stations': Cache(stations_cache_dir)}
 
-        try:
-            await console_main(player, station_id)
-        finally:
-            close_player(player)
-        # except asyncio.CancelledError:
+    player = create_shoutcast_player()
 
     try:
-        asyncio.run(start_radio())
+        asyncio.run(console_main(cache, player, station_id))
     except KeyboardInterrupt:
         log.info("CTRL+C Pressed, are you tired of music? You should not...")
     except asyncio.exceptions.TimeoutError:
         log.error(f'Timeout occurred during request')
+    except aiohttp.ClientResponseError as error:
+        log.error(error)
     except Exception as e:
-        print(e)
+        log.error(e)
+    finally:
+        log.debug('Closing cache...')
+        for c in cache.values():
+            c.close()
+        close_player(player)

@@ -2,16 +2,24 @@ from itertools import chain
 
 from InquirerPy import inquirer
 
-from argparse import Namespace, ArgumentParser
+from argparse import  ArgumentParser, ArgumentTypeError
 
 import logging
 
 log = logging.getLogger(__name__)
 
 
+def station_id_type(station_id):
+    if not station_id.isnumeric():
+        raise ArgumentTypeError(f'Station ID should be a number, "{station_id}" is not valid')
+    return station_id
+
+
 def argument_parser() -> ArgumentParser:
     arg_parser = ArgumentParser(description='Radio 81 - A banal old tube radio', prog='radio81')
-    arg_parser.add_argument('--id', metavar='STATION_ID', help='Play a station ')
+    arg_parser.add_argument('-s', '--station_id', type=station_id_type, metavar='STATION_ID', help='Play a station ')
+    arg_parser.add_argument('-v', '--verbose', action='store_true',
+                            help='add extra entropy to the universe')
     return arg_parser
 
 
